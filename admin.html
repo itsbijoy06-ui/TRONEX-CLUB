@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>SADEHIN - Admin Panel</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+body{font-family:'Poppins',sans-serif;background:#0a0e17;color:#e8eaed;min-height:100vh;overflow-x:hidden}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:#0a0e17}::-webkit-scrollbar-thumb{background:#1e2a3a;border-radius:4px}
+:root{--bg:#0a0e17;--card:#131a2b;--card2:#192236;--accent:#f0b90b;--green:#00e676;--red:#ff1744;--border:#1e2a3a;--text:#e8eaed;--text2:#6b7a8d}
+.logo-g{background:linear-gradient(135deg,#f0b90b,#fcd535);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.card{background:var(--card);border-radius:16px;border:1px solid var(--border)}
+.card2{background:var(--card2);border-radius:12px;border:1px solid var(--border)}
+.btn-gold{background:linear-gradient(135deg,#f0b90b,#d4a20a);color:#0a0e17;padding:12px;border-radius:10px;font-weight:800;font-size:13px;border:none;width:100%;cursor:pointer;transition:.2s}
+.btn-gold:active{transform:scale(.97)}
+.btn-sm{padding:8px 16px;border-radius:8px;font-weight:700;font-size:11px;border:none;cursor:pointer;transition:.2s}
+.btn-sm:active{transform:scale(.95)}
+.inp-d{width:100%;background:#0d1220;border:1px solid var(--border);padding:12px;border-radius:10px;font-size:13px;outline:none;color:var(--text)}
+.inp-d:focus{border-color:var(--accent)}
+
+/* সাইডবার ও লেআউট */
+.sidebar{position:fixed;top:0;left:0;width:260px;height:100vh;background:#0d1220;border-right:1px solid var(--border);z-index:50;transition:transform .3s;overflow-y:auto}
+.sidebar.closed{transform:translateX(-100%)}
+.main-content{margin-left:260px;min-height:100vh;transition:margin-left .3s}
+.main-content.full{margin-left:0}
+.nav-link{display:flex;align-items:center;gap:12px;padding:12px 20px;color:var(--text2);font-weight:600;font-size:13px;cursor:pointer;transition:.2s;border-left:3px solid transparent}
+.nav-link:hover,.nav-link.on{background:rgba(240,185,11,.05);color:var(--accent);border-left-color:var(--accent)}
+.nav-link i{width:20px;text-align:center}
+
+/* মোবাইল রেসপন্সিভ */
+@media(max-width:768px){
+.sidebar{transform:translateX(-100%);z-index:100}
+.sidebar.open{transform:translateX(0)}
+.main-content{margin-left:0!important}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:90;display:none}
+.overlay.show{display:block}
+}
+
+/* টেবিল */
+.res-table{width:100%;border-collapse:collapse}
+.res-table th{text-align:left;padding:12px;font-size:11px;color:var(--text2);border-bottom:1px solid var(--border);font-weight:700}
+.res-table td{padding:12px;font-size:12px;border-bottom:1px solid var(--border);vertical-align:middle}
+.badge{padding:4px 10px;border-radius:6px;font-size:10px;font-weight:700}
+.badge-pending{background:rgba(240,185,11,.15);color:#f0b90b}
+.badge-approved{background:rgba(0,230,118,.15);color:#00e676}
+.badge-rejected{background:rgba(255,23,68,.15);color:#ff1744}
+</style>
+</head>
+<body>
+
+<!-- অভারলে (মোবাইল) -->
+<div id="overlay" class="overlay" onclick="toggleSidebar()"></div>
+
+<!-- অথেনটিকেশন সেকশন -->
+<div id="auth-section" class="min-h-screen flex items-center justify-center p-4">
+<div class="card p-8 w-full max-w-sm text-center">
+<div class="w-16 h-16 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-yellow-500/20"><i class="fas fa-shield-halved text-black text-2xl"></i></div>
+<h1 class="text-2xl font-black logo-g mb-1">ADMIN PANEL</h1>
+<p class="text-xs mb-6" style="color:var(--text2)">SADEHIN Platform Control</p>
+<div class="mb-4"><input type="email" id="admin-email" class="inp-d" placeholder="Admin Email"></div>
+<div class="mb-6"><input type="password" id="admin-pass" class="inp-d" placeholder="Password"></div>
+<button onclick="adminLogin()" class="btn-gold"><i class="fas fa-lock mr-2"></i>Secure Login</button>
+</div>
+</div>
+
+<!-- ড্যাশবোর্ড সেকশন -->
+<div id="dashboard-section" class="hidden">
+
+<!-- টপবার -->
+<header class="sticky top-0 z-40 bg-[#0a0e17]/90 backdrop-blur-xl border-b border-[var(--border)] flex justify-between items-center px-4 py-3">
+<div class="flex items-center gap-3">
+<button onclick="toggleSidebar()" class="w-9 h-9 rounded-lg bg-[var(--card)] flex items-center justify-center border border-[var(--border)]"><i class="fas fa-bars text-sm" style="color:var(--text2)"></i></button>
+<h1 class="font-black text-lg logo-g">SADEHIN</h1>
+</div>
+<div class="flex items-center gap-3">
+<span class="text-xs font-bold" style="color:var(--text2)">Admin</span>
+<button onclick="adminLogout()" class="w-9 h-9 rounded-lg bg-red-500/10 flex items-center justify-center border border-red-500/20"><i class="fas fa-sign-out-alt text-sm text-red-400"></i></button>
+</div>
+</header>
+
+<!-- সাইডবার -->
+<aside id="sidebar" class="sidebar">
+<div class="p-5 border-b border-[var(--border)]">
+<h2 class="font-black text-lg logo-g">Dashboard</h2>
+</div>
+<nav class="py-4">
+<div class="nav-link on" onclick="showSection('home',this)"><i class="fas fa-home"></i>Overview</div>
+<div class="nav-link" onclick="showSection('deposits',this)"><i class="fas fa-wallet"></i>Deposits <span class="ml-auto bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded text-[10px] font-bold" id="dep-pend-count">0</span></div>
+<div class="nav-link" onclick="showSection('withdraws',this)"><i class="fas fa-money-bill-transfer"></i>Withdrawals <span class="ml-auto bg-red-500/20 text-red-400 px-2 py-0.5 rounded text-[10px] font-bold" id="wd-pend-count">0</span></div>
+<div class="nav-link" onclick="showSection('users',this)"><i class="fas fa-users"></i>Users</div>
+<div class="nav-link" onclick="showSection('settings',this)"><i class="fas fa-cog"></i>Settings</div>
+<div class="nav-link" onclick="showSection('giftcodes',this)"><i class="fas fa-gift"></i>Gift Codes</div>
+<div class="nav-link" onclick="showSection('notifications',this)"><i class="fas fa-bell"></i>Notifications</div>
+</nav>
+</aside>
+
+<!-- মেইন কন্টেন্ট এরিয়া -->
+<main id="main-area" class="main-content p-4 md:p-6">
+
+<!-- হোম সেকশন -->
+<div id="sec-home" class="sec active">
+<h2 class="text-xl font-bold mb-4">Platform Overview</h2>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+<div class="card p-4"><p class="text-[10px] font-bold" style="color:var(--text2)">TOTAL USERS</p><h3 class="text-2xl font-black" id="stat-users">0</h3></div>
+<div class="card p-4"><p class="text-[10px] font-bold" style="color:var(--text2)">TOTAL DEPOSITS</p><h3 class="text-2xl font-black" style="color:var(--green)" id="stat-dep">৳0</h3></div>
+<div class="card p-4"><p class="text-[10px] font-bold" style="color:var(--text2)">TOTAL WITHDRAWALS</p><h3 class="text-2xl font-black" style="color:var(--red)" id="stat-wd">৳0</h3></div>
+<div class="card p-4"><p class="text-[10px] font-bold" style="color:var(--text2)">PENDING REQUESTS</p><h3 class="text-2xl font-black" style="color:var(--accent)" id="stat-pending">0</h3></div>
+</div>
+</div>
+
+<!-- ডিপোজিট সেকশন -->
+<div id="sec-deposits" class="sec hidden">
+<h2 class="text-xl font-bold mb-4">Deposit Requests</h2>
+<div class="card overflow-x-auto">
+<table class="res-table">
+<thead><tr><th>User</th><th>Method</th><th>Amount</th><th>Time</th><th>Proof</th><th>Action</th></tr></thead>
+<tbody id="dep-list"></tbody>
+</table>
+</div>
+</div>
+
+<!-- উইথড্র সেকশন -->
+<div id="sec-withdraws" class="sec hidden">
+<h2 class="text-xl font-bold mb-4">Withdrawal Requests</h2>
+<div class="card overflow-x-auto">
+<table class="res-table">
+<thead><tr><th>User</th><th>Method</th><th>Number</th><th>Amount</th><th>Time</th><th>Action</th></tr></thead>
+<tbody id="wd-list"></tbody>
+</table>
+</div>
+</div>
+
+<!-- ইউজার সেকশন -->
+<div id="sec-users" class="sec hidden">
+<h2 class="text-xl font-bold mb-4">User Management</h2>
+<div class="flex gap-2 mb-4">
+<input type="text" id="user-search" class="inp-d" placeholder="Search by Mobile..." oninput="searchUser()">
+</div>
+<div class="card overflow-x-auto">
+<table class="res-table">
+<thead><tr><th>Mobile</th><th>Balance</th><th>Deposit</th><th>Turnover</th><th>Action</th></tr></thead>
+<tbody id="user-list"></tbody>
+</table>
+</div>
+</div>
+
+<!-- সেটিংস সেকশন -->
+<div id="sec-settings" class="sec hidden">
+<h2 class="text-xl font-bold mb-4">Site Settings</h2>
+<div class="grid md:grid-cols-2 gap-4">
+<div class="card p-5">
+<h3 class="font-bold mb-3" style="color:var(--accent)"><i class="fas fa-wallet mr-2"></i>Deposit Methods</h3>
+<div class="space-y-3">
+<div><label class="text-xs font-bold block mb-1" style="color:var(--text2)">bKash Number</label><input type="text" id="set-bkash" class="inp-d"></div>
+<div><label class="text-xs font-bold block mb-1" style="color:var(--text2)">Nagad Number</label><input type="text" id="set-nagad" class="inp-d"></div>
+<div><label class="text-xs font-bold block mb-1" style="color:var(--text2)">Rocket Number</label><input type="text" id="set-rocket" class="inp-d"></div>
+</div>
+</div>
+<div class="card p-5">
+<h3 class="font-bold mb-3" style="color:var(--accent)"><i class="fas fa-cog mr-2"></i>General Settings</h3>
+<div class="space-y-3">
+<div><label class="text-xs font-bold block mb-1" style="color:var(--text2)">Win Go Banner URL</label><input type="text" id="set-wg-img" class="inp-d"></div>
+<div><label class="text-xs font-bold block mb-1" style="color:var(--text2)">Turnover Multiplier (1x, 2x)</label><input type="number" id="set-turn-mult" class="inp-d" step="0.1"></div>
+<div><label class="text-xs font-bold block mb-1" style="color:var(--text2)">Referral Levels</label><input type="number" id="set-ref-lvl" class="inp-d"></div>
+</div>
+</div>
+</div>
+<button onclick="saveSettings()" class="btn-gold mt-4 max-w-xs"><i class="fas fa-save mr-2"></i>Save Settings</button>
+</div>
+
+<!-- গিফট কোড সেকশন -->
+<div id="sec-giftcodes" class="sec hidden">
+<h2 class="text-xl font-bold mb-4">Gift Code Management</h2>
+<div class="card p-5 mb-4">
+<h3 class="font-bold mb-3">Create New Code</h3>
+<div class="grid grid-cols-2 gap-3 mb-3">
+<input type="number" id="gc-amount" class="inp-d" placeholder="Amount (৳)">
+<input type="number" id="gc-max" class="inp-d" placeholder="Max Uses">
+</div>
+<button onclick="createGiftCode()" class="btn-gold max-w-xs"><i class="fas fa-plus mr-2"></i>Generate Code</button>
+</div>
+<div class="card p-5">
+<h3 class="font-bold mb-3">Active Codes</h3>
+<div id="gc-list"></div>
+</div>
+</div>
+
+<!-- নোটিফিকেশন সেকশন -->
+<div id="sec-notifications" class="sec hidden">
+<h2 class="text-xl font-bold mb-4">Send Notification</h2>
+<div class="card p-5">
+<div class="space-y-3 mb-4">
+<input type="text" id="notif-title" class="inp-d" placeholder="Notification Title">
+<textarea id="notif-body" class="inp-d" rows="3" placeholder="Message..."></textarea>
+</div>
+<button onclick="sendNotification()" class="btn-gold max-w-xs"><i class="fas fa-paper-plane mr-2"></i>Send to All Users</button>
+</div>
+</div>
+
+</main>
+</div>
+
+<!-- স্ক্রিনশট মডাল -->
+<div id="modal-proof" class="fixed inset-0 bg-black/90 z-[200] hidden items-center justify-center p-4 cursor-pointer" onclick="this.style.display='none'">
+<img id="proof-img" src="" class="max-w-full max-h-[80vh] rounded-xl">
+</div>
+
+<script>
+/* ===== Firebase কনফিগ (মেইন সাইটের মতোই) ===== */
+var firebaseConfig={apiKey:"AIzaSyDprzYU_KJcoZP9jm_o1TucfH85rg-lR_Q",authDomain:"sadehin-25970.firebaseapp.com",databaseURL:"https://sadehin-25970-default-rtdb.firebaseio.com",projectId:"sadehin-25970",storageBucket:"sadehin-25970.firebasestorage.app",messagingSenderId:"35018150331",appId:"1:35018150331:web:4afc018929b3038281b49e"};
+firebase.initializeApp(firebaseConfig);
+var db=firebase.database();
+var auth=firebase.auth();
+
+var allUsersCache={};
+
+/* ===== অথেনটিকেশন ===== */
+function adminLogin(){
+    var email=document.getElementById('admin-email').value;
+    var pass=document.getElementById('admin-pass').value;
+    if(!email||!pass) return Swal.fire({icon:'error',title:'Error',text:'Fill all fields',background:'#131a2b',color:'#e8eaed',confirmButtonColor:'#f0b90b'});
+    
+    Swal.fire({title:'Authenticating...',allowOutsideClick:false,didOpen:()=>Swal.showLoading()});
+    
+    auth.signInWithEmailAndPassword(email,pass).then(()=>{
+        Swal.close();
+        document.getElementById('auth-section').classList.add('hidden');
+        document.getElementById('dashboard-section').classList.remove('hidden');
+        initDashboard();
+    }).catch(err=>{
+        Swal.fire({icon:'error',title:'Auth Failed',text:err.message,background:'#131a2b',color:'#e8eaed',confirmButtonColor:'#f0b90b'});
+    });
+}
+
+function adminLogout(){
+    auth.signOut().then(()=>{
+        document.getElementById('auth-section').classList.remove('hidden');
+        document.getElementById('dashboard-section').classList.add('hidden');
+    });
+}
+
+// অটো লগইন চেক
+auth.onAuthStateChanged(user=>{
+    if(user){
+        document.getElementById('auth-section').classList.add('hidden');
+        document.getElementById('dashboard-section').classList.remove('hidden');
+        initDashboard();
+    }
+});
+
+/* ===== ইউটিলিটি ===== */
+function toggleSidebar(){
+    var sb=document.getElementById('sidebar'),ov=document.getElementById('overlay');
+    sb.classList.toggle('open');ov.classList.toggle('show');
+}
+
+function showSection(id,el){
+    document.querySelectorAll('.sec').forEach(s=>s.classList.add('hidden'));
+    document.getElementById('sec-'+id).classList.remove('hidden');
+    document.querySelectorAll('.nav-link').forEach(n=>n.classList.remove('on'));
+    if(el)el.classList.add('on');
+    if(window.innerWidth<768)toggleSidebar();
+}
+
+function fmtTime(ts){return new Date(ts).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}
+function sw(opt){Swal.fire(Object.assign({confirmButtonColor:'#f0b90b',background:'#131a2b',color:'#e8eaed'},opt))}
+
+/* ===== ড্যাশবোর্ড ইনিশিয়ালাইজ ===== */
+function initDashboard(){
+    loadStats();
+    loadDeposits();
+    loadWithdraws();
+    loadUsers();
+    loadSettings();
+    loadGiftCodes();
+}
+
+/* ===== ওভারভিউ স্ট্যাটস ===== */
+function loadStats(){
+    db.ref('users').on('value',s=>{
+        var count=s.numChildren();document.getElementById('stat-users').innerText=count;
+        allUsersCache={};s.forEach(u=>{allUsersCache[u.key]=u.val()});
+    });
+    db.ref('deposits').on('value',s=>{
+        var total=0,pending=0;s.forEach(u=>{var d=u.val();if(d.status==='approved')total+=d.amount;if(d.status==='pending')pending++});
+        document.getElementById('stat-dep').innerText='৳'+total;
+        document.getElementById('dep-pend-count').innerText=pending;
+        document.getElementById('stat-pending').innerText=pending;
+    });
+    db.ref('withdraws').on('value',s=>{
+        var total=0,pending=0;s.forEach(u=>{var d=u.val();if(d.status==='approved')total+=d.amount;if(d.status==='pending')pending++});
+        document.getElementById('stat-wd').innerText='৳'+total;
+        document.getElementById('wd-pend-count').innerText=pending;
+    });
+}
+
+/* ===== ডিপোজিট ম্যানেজমেন্ট ===== */
+function loadDeposits(){
+    db.ref('deposits').orderByChild('time').limitToLast(50).on('value',s=>{
+        var h=document.getElementById('dep-list');h.innerHTML='';
+        s.forEach(u=>{
+            var d=u.val(),k=u.key;
+            var statusBadge=d.status==='approved'?'badge-approved':d.status==='rejected'?'badge-rejected':'badge-pending';
+            var actions=d.status==='pending'?`<button class="btn-sm bg-green-500/20 text-green-400" onclick="actionDep('${k}','${d.userId}',${d.amount},'approve')"><i class="fas fa-check"></i></button> <button class="btn-sm bg-red-500/20 text-red-400" onclick="actionDep('${k}','${d.userId}',${d.amount},'reject')"><i class="fas fa-times"></i></button>`:'Done';
+            h.innerHTML+=`<tr>
+                <td class="font-bold">${d.mobile||d.userId}</td>
+                <td>${d.method}</td>
+                <td class="font-bold" style="color:var(--green)">৳${d.amount}</td>
+                <td class="text-[10px]" style="color:var(--text2)">${fmtTime(d.time)}</td>
+                <td>${d.screenshot?`<button class="btn-sm bg-blue-500/20 text-blue-400" onclick="viewProof('${d.screenshot}')"><i class="fas fa-eye"></i></button>`:'N/A'}</td>
+                <td><span class="badge ${statusBadge}">${d.status}</span> ${actions}</td>
+            </tr>`;
+        });
+    });
+}
+
+function actionDep(key,uid,amount,act){
+    var updates={};
+    if(act==='approve'){
+        updates['deposits/'+key+'/status']='approved';
+        // ইউজার ব্যালেন্স, ডিপোজিট এবং টার্নওভার রিকোয়ায়ারমেন্ট বাড়ানো
+        db.ref('users/'+uid).once('value',s=>{
+            if(!s.exists())return;
+            var mult=s.val().turnoverMultiplier||1;
+            updates['users/'+uid+'/balance']=(s.val().balance||0)+amount;
+            updates['users/'+uid+'/deposit']=(s.val().deposit||0)+amount;
+            updates['users/'+uid+'/turnoverRequired']=(s.val().turnoverRequired||0)+(amount*mult);
+            db.ref().update(updates);
+            sw({icon:'success',title:'Approved!',text:'Balance updated.'});
+        });
+    }else{
+        updates['deposits/'+key+'/status']='rejected';
+        db.ref().update(updates);
+        sw({icon:'info',title:'Rejected'});
+    }
+}
+
+function viewProof(src){document.getElementById('proof-img').src=src;document.getElementById('modal-proof').style.display='flex'}
+
+/* ===== উইথড্র ম্যানেজমেন্ট ===== */
+function loadWithdraws(){
+    db.ref('withdraws').orderByChild('time').limitToLast(50).on('value',s=>{
+        var h=document.getElementById('wd-list');h.innerHTML='';
+        s.forEach(u=>{
+            var d=u.val(),k=u.key;
+            var statusBadge=d.status==='approved'?'badge-approved':d.status==='rejected'?'badge-rejected':'badge-pending';
+            var actions=d.status==='pending'?`<button class="btn-sm bg-green-500/20 text-green-400" onclick="actionWd('${k}','${d.userId}',${d.amount},'approve')"><i class="fas fa-check"></i></button> <button class="btn-sm bg-red-500/20 text-red-400" onclick="actionWd('${k}','${d.userId}',${d.amount},'reject')"><i class="fas fa-times"></i></button>`:'Done';
+            h.innerHTML+=`<tr>
+                <td class="font-bold">${d.mobile||d.userId}</td>
+                <td>${d.method}</td>
+                <td>${d.number}</td>
+                <td class="font-bold" style="color:var(--red)">৳${d.amount}</td>
+                <td class="text-[10px]" style="color:var(--text2)">${fmtTime(d.time)}</td>
+                <td><span class="badge ${statusBadge}">${d.status}</span> ${actions}</td>
+            </tr>`;
+        });
+    });
+}
+
+function actionWd(key,uid,amount,act){
+    var updates={};
+    updates['withdraws/'+key+'/status']=act==='approve'?'approved':'rejected';
+    
+    if(act==='reject'){
+        // ব্যালেন্স ফেরত দেওয়া
+        db.ref('users/'+uid+'/balance').transaction(b=>(b||0)+amount);
+    }
+    
+    db.ref().update(updates);
+    sw({icon:act==='approve'?'success':'info',title:act==='approve'?'Approved':'Rejected & Refunded'});
+}
+
+/* ===== ইউজার ম্যানেজমেন্ট ===== */
+function loadUsers(){
+    db.ref('users').limitToLast(100).on('value',s=>{
+        renderUserTable(s);
+    });
+}
+
+function searchUser(){
+    var q=document.getElementById('user-search').value.trim().toLowerCase();
+    if(!q){loadUsers();return}
+    db.ref('users').orderByChild('mobile').startAt(q).endAt(q+'\uf8ff').limitToFirst(20).once('value',s=>{
+        renderUserTable(s);
+    });
+}
+
+function renderUserTable(s){
+    var h=document.getElementById('user-list');h.innerHTML='';
+    if(!s.exists())return;
+    s.forEach(u=>{
+        var d=u.val(),k=u.key;
+        h.innerHTML+=`<tr>
+            <td class="font-bold">${d.mobile}</td>
+            <td style="color:var(--accent)">৳${(d.balance||0).toFixed(2)}</td>
+            <td>৳${(d.deposit||0).toFixed(0)}</td>
+            <td>৳${(d.turnover||0).toFixed(0)}/${(d.turnoverRequired||0).toFixed(0)}</td>
+            <td><button class="btn-sm bg-blue-500/20 text-blue-400" onclick="editUser('${k}')"><i class="fas fa-edit"></i> Edit</button></td>
+        </tr>`;
+    });
+}
+
+function editUser(uid){
+    var d=allUsersCache[uid];if(!d)return;
+    Swal.fire({
+        title:'Edit User: '+d.mobile,
+        html:`<input type="number" id="sw-bal" class="swal2-input" placeholder="Balance" value="${d.balance||0}">
+              <input type="number" id="sw-turn" class="swal2-input" placeholder="Turnover" value="${d.turnoverRequired||0}">`,
+        confirmButtonColor:'#f0b90b',background:'#131a2b',color:'#e8eaed',showCancelButton:true
+    }).then(r=>{
+        if(r.isConfirmed){
+            var bal=parseFloat(document.getElementById('sw-bal').value);
+            var turn=parseFloat(document.getElementById('sw-turn').value);
+            db.ref('users/'+uid).update({balance:bal,turnoverRequired:turn});
+            sw({icon:'success',title:'User Updated'});
+        }
+    });
+}
+
+/* ===== সেটিংস ম্যানেজমেন্ট ===== */
+function loadSettings(){
+    db.ref('settings').on('value',s=>{
+        if(!s.exists())return;var d=s.val();
+        document.getElementById('set-bkash').value=(d.depositMethods&&d.depositMethods.bkash)?d.depositMethods.bkash.number:'';
+        document.getElementById('set-nagad').value=(d.depositMethods&&d.depositMethods.nagad)?d.depositMethods.nagad.number:'';
+        document.getElementById('set-rocket').value=(d.depositMethods&&d.depositMethods.rocket)?d.depositMethods.rocket.number:'';
+        document.getElementById('set-wg-img').value=d.winGoImage||'';
+        document.getElementById('set-turn-mult').value=d.turnoverMultiplier||1;
+        document.getElementById('set-ref-lvl').value=d.referralLevels||3;
+    });
+}
+
+function saveSettings(){
+    var updates={
+        "depositMethods/bkash/number":document.getElementById('set-bkash').value,
+        "depositMethods/bkash/type":"send_money","depositMethods/bkash/name":"Admin",
+        "depositMethods/nagad/number":document.getElementById('set-nagad').value,
+        "depositMethods/nagad/type":"cash_out","depositMethods/nagad/name":"Admin",
+        "depositMethods/rocket/number":document.getElementById('set-rocket').value,
+        "depositMethods/rocket/type":"send_money","depositMethods/rocket/name":"Admin",
+        "winGoImage":document.getElementById('set-wg-img').value,
+        "turnoverMultiplier":parseFloat(document.getElementById('set-turn-mult').value)||1,
+        "referralLevels":parseInt(document.getElementById('set-ref-lvl').value)||3
+    };
+    db.ref('settings').update(updates).then(()=>sw({icon:'success',title:'Settings Saved!'}));
+}
+
+/* ===== গিফট কোড ম্যানেজমেন্ট ===== */
+function createGiftCode(){
+    var amt=parseFloat(document.getElementById('gc-amount').value);
+    var max=parseInt(document.getElementById('gc-max').value);
+    if(!amt||!max)return sw({icon:'error',title:'Error',text:'Fill fields'});
+    
+    var code='';var c='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';for(var i=0;i<8;i++)code+=c[Math.floor(Math.random()*36)];
+    
+    db.ref('settings/giftCodes/'+code).set({amount:amt,maxUses:max,usedBy:{}}).then(()=>{
+        sw({icon:'success',title:'Code Created!',html:`Code: <b style="color:#f0b90b">${code}</b>`});
+        document.getElementById('gc-amount').value='';document.getElementById('gc-max').value='';
+    });
+}
+
+function loadGiftCodes(){
+    db.ref('settings/giftCodes').on('value',s=>{
+        var h=document.getElementById('gc-list');h.innerHTML='';
+        if(!s.exists()){h.innerHTML='<p class="text-sm" style="color:var(--text2)">No codes</p>';return}
+        s.forEach(u){
+            var d=u.val(),k=u.key,used=d.usedBy?Object.keys(d.usedBy).length:0;
+            h.innerHTML+=`<div class="card2 p-3 mb-2 flex justify-between items-center">
+                <div><span class="font-bold" style="color:var(--accent)">${k}</span> <span class="text-xs">(৳${d.amount})</span><br><span class="text-[10px]" style="color:var(--text2)">Used: ${used}/${d.maxUses}</span></div>
+                <button class="btn-sm bg-red-500/20 text-red-400" onclick="deleteGC('${k}')"><i class="fas fa-trash"></i></button>
+            </div>`;
+        }
+    });
+}
+
+function deleteGC(k){db.ref('settings/giftCodes/'+k).remove();sw({icon:'success',title:'Deleted'})}
+
+/* ===== নোটিফিকেশন ===== */
+function sendNotification(){
+    var title=document.getElementById('notif-title').value;
+    var body=document.getElementById('notif-body').value;
+    if(!title||!body)return sw({icon:'error',title:'Error'});
+    
+    db.ref('notifications').push({title:title,message:body,target:'all',time:Date.now()}).then(()=>{
+        sw({icon:'success',title:'Sent!'});
+        document.getElementById('notif-title').value='';document.getElementById('notif-body').value='';
+    });
+}
+</script>
+</body>
+</html>
